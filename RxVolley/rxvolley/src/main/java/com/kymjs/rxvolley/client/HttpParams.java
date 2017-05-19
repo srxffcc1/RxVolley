@@ -19,16 +19,10 @@ package com.kymjs.rxvolley.client;
 import android.text.TextUtils;
 
 import com.kymjs.common.FileUtils;
-import com.kymjs.common.Log;
 import com.kymjs.rxvolley.toolbox.HttpParamsEntry;
 
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
 import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.UnsupportedEncodingException;
 import java.net.URLEncoder;
@@ -68,10 +62,9 @@ public class HttpParams {
     private final ArrayList<HttpParamsEntry> urlParams = new ArrayList<>(8);
     private final ArrayList<HttpParamsEntry> mHeaders = new ArrayList<>(4);
 
-    private final ByteArrayOutputStream mOutputStream = new ByteArrayOutputStream();
     private boolean hasFile;
     private String contentType = null;
-
+    private long contentLength=0;
     private String jsonParams;
 
     public HttpParams() {
@@ -99,6 +92,7 @@ public class HttpParams {
     }
 
     public void put(final String key, final int value) {
+        contentLength+=value+"".length();
         this.put(key, value + "");
     }
 
@@ -110,56 +104,70 @@ public class HttpParams {
      * 添加文本参数
      */
     public void put(final String key, final String value) {
+        contentLength+=value.length();
         urlParams.add(new HttpParamsEntry(key, value));
-        writeToOutputStream(key, value.getBytes(), TYPE_TEXT_CHARSET,
+
+    }
+    private void put(OutputStream outstream, final String key, final String value) {
+        writeToOutputStream(outstream,key, value.getBytes(), TYPE_TEXT_CHARSET,
                 BIT_ENCODING, "");
     }
 
     /**
      * 添加二进制参数, 例如Bitmap的字节流参数
      */
-    public void put(String paramName, final byte[] rawData) {
+    public void put(String key, final byte[] value) {
+
+        contentLength+=value.length;
         hasFile = true;
-        writeToOutputStream(paramName, rawData, TYPE_OCTET_STREAM,
+        urlParams.add(new HttpParamsEntry(key, value));
+    }
+    private void put(OutputStream outstream,final String key, final byte[]  value) {
+        writeToOutputStream(outstream,key, value, TYPE_OCTET_STREAM,
                 BINARY_ENCODING, "RxVolleyFile");
     }
-
     /**
      * 添加文件参数,可以实现文件上传功能
      */
-    public void put(final String key, final File file) {
-        try {
+    public void put(final String key, final File value) {
+        contentLength+=value.length();
             hasFile = true;
-            writeToOutputStream(key, FileUtils.input2byte(new FileInputStream(file)),
-                    TYPE_OCTET_STREAM, BINARY_ENCODING, file.getName());
-        } catch (FileNotFoundException e) {
-            Log.d("RxVolley", "HttpParams.put()-> file not found");
+        urlParams.add(new HttpParamsEntry(key, value));
+
+    }
+    private void put(OutputStream outstream, final String key, final File value) {
+        try {
+            writeToOutputStream(outstream,key, value,
+                    TYPE_OCTET_STREAM, BINARY_ENCODING, value.getName());
+        } catch (Exception e) {
+            e.printStackTrace();
         }
     }
+
+
 
     /**
      * 添加二进制文件参数
      *
      * @param key      参数key
-     * @param rawData  二进制参数body
+     * @param value  二进制参数body
      * @param type     参数的contentType
      * @param fileName 二进制文件名,可以为空
      */
-    public void put(final String key, final byte[] rawData, String type, String fileName) {
+    public void put(final String key, final byte[] value, String type, String fileName) {
         hasFile = true;
         if (TextUtils.isEmpty(fileName)) {
             fileName = "RxVolleyFile";
         }
-        writeToOutputStream(key, rawData, type, BINARY_ENCODING, fileName);
+        urlParams.add(new HttpParamsEntry(key, value));
     }
-
     /**
      * 将数据写入到输出流中
      */
-    private void writeToOutputStream(String paramName, byte[] rawData,
+    private void writeToOutputStream(final OutputStream mOutputStream,String paramName, byte[] rawData,
                                      String type, byte[] encodingBytes, String fileName) {
         try {
-            writeFirstBoundary();
+            writeFirstBoundary(mOutputStream);
             mOutputStream
                     .write((CONTENT_TYPE + type + NEW_LINE_STR).getBytes());
             mOutputStream
@@ -171,13 +179,31 @@ public class HttpParams {
             e.printStackTrace();
         }
     }
+    /**
+     * 将数据写入到输出流中
+     */
+    private void writeToOutputStream(final OutputStream mOutputStream,String paramName, File rawData,
+                                     String type, byte[] encodingBytes, String fileName) {
+        try {
+            writeFirstBoundary(mOutputStream);
+            mOutputStream
+                    .write((CONTENT_TYPE + type + NEW_LINE_STR).getBytes());
+            mOutputStream
+                    .write(getContentDispositionBytes(paramName, fileName));
+            mOutputStream.write(encodingBytes);
+            FileUtils.input2byte(rawData,mOutputStream);
+            mOutputStream.write(NEW_LINE_STR.getBytes());
+        } catch (final IOException e) {
+            e.printStackTrace();
+        }
+    }
 
     /**
      * 参数开头的分隔符
      *
      * @throws IOException
      */
-    private void writeFirstBoundary() throws IOException {
+    private void writeFirstBoundary(final OutputStream mOutputStream) throws IOException {
         mOutputStream.write(("--" + mBoundary + "\r\n").getBytes());
     }
 
@@ -192,7 +218,7 @@ public class HttpParams {
     }
 
     public long getContentLength() {
-        return mOutputStream.toByteArray().length;
+        return contentLength;
     }
 
     public String getContentType() {
@@ -224,13 +250,37 @@ public class HttpParams {
             // 参数最末尾的结束符
             final String endString = "--" + mBoundary + "--\r\n";
             // 写入结束符
-            mOutputStream.write(endString.getBytes());
+            for (HttpParamsEntry entry : urlParams
+                    ) {
+                if(entry.v.getClass().getSimpleName().equals("String")){
+                    put(outstream,entry.k,(String)entry.v);
+                }else if(entry.v.getClass().getSimpleName().equals("File")){
+                    put(outstream,entry.k,(File)entry.v);
+                }else{
+                    put(outstream,entry.k,(byte[]) entry.v);
+                }
+            }
+            outstream.write(endString.getBytes());
             //
-            outstream.write(mOutputStream.toByteArray());
+//            outstream.write(outstream.toByteArray());
         } else if (!TextUtils.isEmpty(getUrlParams())) {
             outstream.write(getUrlParams().substring(1).getBytes());
         }
+
+
+//
+//        if (hasFile) {
+//            // 参数最末尾的结束符
+//            final String endString = "--" + mBoundary + "--\r\n";
+//            // 写入结束符
+//            mOutputStream.write(endString.getBytes());
+//            //
+//            outstream.write(mOutputStream.toByteArray());
+//        } else if (!TextUtils.isEmpty(getUrlParams())) {
+//            outstream.write(getUrlParams().substring(1).getBytes());
+//        }
     }
+
 
     public void consumeContent() throws IOException,
             UnsupportedOperationException {
@@ -240,9 +290,9 @@ public class HttpParams {
         }
     }
 
-    public InputStream getContent() {
-        return new ByteArrayInputStream(mOutputStream.toByteArray());
-    }
+//    public InputStream getContent() {
+//        return new ByteArrayInputStream(mOutputStream.toByteArray());
+//    }
 
     public StringBuilder getUrlParams() {
         StringBuilder result = new StringBuilder();
@@ -257,8 +307,18 @@ public class HttpParams {
                 isFirst = false;
             }
             try {
+                String ev="";
+                if(entry.v.getClass().getSimpleName().equals("String")){
+                    ev=(String)entry.v;
+                }
+                else if(entry.v.getClass().getSimpleName().equals("File")){
+                    ev=((File)entry.v).getName();
+                }
+                else{
+                    ev="byte[]";
+                }
                 result.append(URLEncoder.encode(entry.k, CHARSET)).append("=").
-                        append(URLEncoder.encode(entry.v, CHARSET));
+                        append(URLEncoder.encode(ev, CHARSET));
             } catch (UnsupportedEncodingException e) {
                 result.append(entry.k).append("=").append(entry.v);
             }

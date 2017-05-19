@@ -98,7 +98,11 @@ public class HttpConnectStack implements IHttpStack {
         URL parsedUrl = new URL(url);
         HttpURLConnection connection = openConnection(parsedUrl, request);
         for (HttpParamsEntry entry : header) {
-            connection.addRequestProperty(entry.k, entry.v);
+            if(entry.v.getClass().getSimpleName().equals("String")){
+                connection.addRequestProperty(entry.k, (String)entry.v);
+            }
+
+
         }
         setConnectionParametersForRequest(connection, request);
         return responseFromConnection(connection);
@@ -207,15 +211,16 @@ public class HttpConnectStack implements IHttpStack {
      */
     private static void addBodyIfExists(HttpURLConnection connection, Request<?> request)
             throws IOException {
-        byte[] body = request.getBody();
-        if (body != null) {
+
+
+            connection.setChunkedStreamingMode(0);//
             connection.setDoOutput(true);
             connection.addRequestProperty(HEADER_CONTENT_TYPE,
                     request.getBodyContentType());
             DataOutputStream out = new DataOutputStream(
                     connection.getOutputStream());
-            out.write(body);
+            request.getBody(out);
             out.close();
-        }
+
     }
 }

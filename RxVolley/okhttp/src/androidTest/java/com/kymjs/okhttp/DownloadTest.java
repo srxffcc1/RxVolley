@@ -3,12 +3,12 @@ package com.kymjs.okhttp;
 import android.os.Looper;
 import android.test.AndroidTestCase;
 
+import com.kymjs.common.FileUtils;
 import com.kymjs.common.Log;
 import com.kymjs.rxvolley.RxVolley;
 import com.kymjs.rxvolley.client.HttpCallback;
 import com.kymjs.rxvolley.client.ProgressListener;
 import com.kymjs.rxvolley.http.RequestQueue;
-import com.kymjs.rxvolley.toolbox.FileUtils;
 import com.squareup.okhttp.OkHttpClient;
 
 import org.junit.Before;

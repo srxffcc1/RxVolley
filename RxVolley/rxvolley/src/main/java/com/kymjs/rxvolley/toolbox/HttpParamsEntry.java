@@ -24,7 +24,7 @@ import android.support.annotation.NonNull;
  */
 public class HttpParamsEntry implements Comparable<HttpParamsEntry> {
     public String k;
-    public String v;
+    public Object v;
 
     @Override
     public boolean equals(Object o) {
@@ -40,7 +40,7 @@ public class HttpParamsEntry implements Comparable<HttpParamsEntry> {
         return k.hashCode();
     }
 
-    public HttpParamsEntry(String key, String value) {
+    public HttpParamsEntry(String key, Object value) {
         k = key;
         v = value;
     }

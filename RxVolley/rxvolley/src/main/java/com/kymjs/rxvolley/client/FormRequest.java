@@ -25,7 +25,6 @@ import com.kymjs.rxvolley.http.Response;
 import com.kymjs.rxvolley.rx.Result;
 import com.kymjs.rxvolley.toolbox.HttpParamsEntry;
 
-import java.io.ByteArrayOutputStream;
 import java.io.FilterOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -73,19 +72,16 @@ public class FormRequest extends Request<byte[]> {
     }
 
     @Override
-    public byte[] getBody() {
-        ByteArrayOutputStream bos = new ByteArrayOutputStream();
+    public void getBody(final OutputStream mOutputStream) {
         try {
             if (mProgressListener != null) {
-                mParams.writeTo(new CountingOutputStream(bos, mParams.getContentLength(),
-                        mProgressListener));
+               new CountingOutputStream(mOutputStream, mParams.getContentLength(), mProgressListener);
             } else {
-                mParams.writeTo(bos);
+                mParams.writeTo(mOutputStream);
             }
         } catch (IOException e) {
             Log.d("RxVolley", "FormRequest#getBody()--->IOException writing to ByteArrayOutputStream");
         }
-        return bos.toByteArray();
     }
 
     @Override

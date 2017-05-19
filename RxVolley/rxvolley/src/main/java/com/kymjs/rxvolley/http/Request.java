@@ -26,6 +26,8 @@ import com.kymjs.rxvolley.client.RequestConfig;
 import com.kymjs.rxvolley.interf.ICache;
 import com.kymjs.rxvolley.toolbox.HttpParamsEntry;
 
+import java.io.IOException;
+import java.io.OutputStream;
 import java.io.UnsupportedEncodingException;
 import java.net.URLEncoder;
 import java.util.ArrayList;
@@ -186,12 +188,16 @@ public abstract class Request<T> implements Comparable<Request<T>> {
     /**
      * 返回Http请求的body
      */
-    public byte[] getBody() {
+    public void getBody(final OutputStream mOutputStream) {
         ArrayList<HttpParamsEntry> params = getParams();
         if (params != null && params.size() > 0) {
-            return encodeParameters(params, getParamsEncoding());
+            try {
+                mOutputStream.write(encodeParameters(params, getParamsEncoding()));
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
         }
-        return null;
+
     }
 
     /**
@@ -204,7 +210,7 @@ public abstract class Request<T> implements Comparable<Request<T>> {
             for (HttpParamsEntry entry : params) {
                 encodedParams.append(URLEncoder.encode(entry.k, paramsEncoding));
                 encodedParams.append('=');
-                encodedParams.append(URLEncoder.encode(entry.v, paramsEncoding));
+                encodedParams.append(URLEncoder.encode(entry.v.toString(), paramsEncoding));
                 encodedParams.append('&');
             }
             return encodedParams.toString().getBytes(paramsEncoding);
