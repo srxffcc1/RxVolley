@@ -75,7 +75,7 @@ public class FormRequest extends Request<byte[]> {
     public void getBody(final OutputStream mOutputStream) {
         try {
             if (mProgressListener != null) {
-               new CountingOutputStream(mOutputStream, mParams.getContentLength(), mProgressListener);
+                mParams.writeTo(new CountingOutputStream(mOutputStream, mParams.getContentLength(), mProgressListener));
             } else {
                 mParams.writeTo(mOutputStream);
             }
